@@ -1,0 +1,16 @@
+{
+	"compatibility_date": "2025-10-08",
+	"main": "src/index.ts",
+	"name": "meta-webhook-handler",
+	"upload_source_maps": true,
+	"observability": {
+		"enabled": true
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "meta-event-db",
+			"database_id": "de2489a1-5a08-40f3-ac25-50b7ae90599b"
+		}
+	]
+}
