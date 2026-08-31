@@ -1,0 +1,32 @@
+name: CityOS public lockfile proof
+on:
+  push:
+    branches: [cityos-lock-proof-v4]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Generate exact lockfile
+        working-directory: cityos-lock-proof
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Validate lockfile graph
+        working-directory: cityos-lock-proof
+        run: |
+          node -e "const x=require('./package-lock.json'); if(x.lockfileVersion!==3) throw new Error('expected lockfile v3'); if(x.packages[''].dependencies.next!=='16.2.6') throw new Error('next mismatch'); console.log(JSON.stringify({lockfileVersion:x.lockfileVersion,packages:Object.keys(x.packages).length,next:x.packages['node_modules/next']?.version,react:x.packages['node_modules/react']?.version,postgres:x.packages['node_modules/postgres']?.version},null,2))"
+      - name: Prove npm ci from exact lockfile
+        working-directory: cityos-lock-proof
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Upload exact package-lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: cityos-package-lock-${{ github.run_id }}
+          path: cityos-lock-proof/package-lock.json
+          if-no-files-found: error
