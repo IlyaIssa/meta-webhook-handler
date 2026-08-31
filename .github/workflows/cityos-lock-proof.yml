@@ -1,4 +1,4 @@
-name: CityOS public lockfile proof
+name: CityOS public dependency proof
 on:
   push:
     branches: [cityos-lock-proof-v4]
@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 jobs:
-  lockfile:
+  dependencies:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,16 +17,39 @@ jobs:
       - name: Generate exact lockfile
         working-directory: cityos-lock-proof
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - name: Validate lockfile graph
+      - name: Validate graph and install-script allowlist
         working-directory: cityos-lock-proof
         run: |
-          node -e "const x=require('./package-lock.json'); if(x.lockfileVersion!==3) throw new Error('expected lockfile v3'); if(x.packages[''].dependencies.next!=='16.2.6') throw new Error('next mismatch'); console.log(JSON.stringify({lockfileVersion:x.lockfileVersion,packages:Object.keys(x.packages).length,next:x.packages['node_modules/next']?.version,react:x.packages['node_modules/react']?.version,postgres:x.packages['node_modules/postgres']?.version},null,2))"
-      - name: Prove npm ci from exact lockfile
+          node <<'NODE'
+          const x=require('./package-lock.json');
+          if(x.lockfileVersion!==3) throw new Error('expected lockfile v3');
+          const root=x.packages[''];
+          if(root.name!=='unoviq-cityos'||root.version!=='4.0.1') throw new Error('root manifest mismatch');
+          if(root.dependencies.next!=='16.2.6') throw new Error('next mismatch');
+          const scripted=Object.entries(x.packages).filter(([k,v])=>k && v.hasInstallScript).map(([k])=>k.replace(/^node_modules\//,''));
+          const unexpected=scripted.filter(x=>x!=='sharp');
+          if(unexpected.length) throw new Error('unexpected install scripts: '+unexpected.join(','));
+          console.log(JSON.stringify({lockfileVersion:x.lockfileVersion,packages:Object.keys(x.packages).length,scripted,next:x.packages['node_modules/next']?.version,react:x.packages['node_modules/react']?.version,postgres:x.packages['node_modules/postgres']?.version},null,2));
+          NODE
+      - name: Install exact dependency graph
         working-directory: cityos-lock-proof
-        run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Upload exact package-lock
+        run: npm ci --no-audit --no-fund
+      - name: Package Linux Node 22 dependency tree
+        working-directory: cityos-lock-proof
+        run: |
+          tar -czf cityos-node-modules-linux-node22.tgz node_modules package-lock.json
+          sha256sum cityos-node-modules-linux-node22.tgz > cityos-node-modules-linux-node22.tgz.sha256
+      - name: Upload exact lockfile
         uses: actions/upload-artifact@v4
         with:
           name: cityos-package-lock-${{ github.run_id }}
           path: cityos-lock-proof/package-lock.json
+          if-no-files-found: error
+      - name: Upload dependency tree for offline build proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: cityos-node-modules-linux-node22-${{ github.run_id }}
+          path: |
+            cityos-lock-proof/cityos-node-modules-linux-node22.tgz
+            cityos-lock-proof/cityos-node-modules-linux-node22.tgz.sha256
           if-no-files-found: error
