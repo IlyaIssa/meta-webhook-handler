@@ -1,6 +1,6 @@
 {
-  "name": "unoviq-cityos-proof-lock",
-  "version": "4.0.0",
+  "name": "unoviq-cityos",
+  "version": "4.0.1",
   "private": true,
   "engines": {"node": ">=22.13.0"},
   "dependencies": {
